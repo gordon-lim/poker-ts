@@ -26,6 +26,7 @@ exports.AutomaticAction = void 0;
 var deck_1 = __importDefault(require("./deck"));
 var community_cards_1 = __importDefault(require("./community-cards"));
 var dealer_1 = __importStar(require("./dealer"));
+var card_1 = __importDefault(require("./card"));
 var assert_1 = __importDefault(require("assert"));
 var bit_1 = require("../util/bit");
 var player_1 = __importDefault(require("./player"));
@@ -177,6 +178,27 @@ var Table = /** @class */ (function () {
         assert_1.default(this.bettingRoundsCompleted(), 'Betting rounds must be completed');
         assert_1.default(this._dealer !== undefined);
         this._dealer.showdown();
+        this.updateTablePlayers();
+        this.standUpBustedPlayers();
+    };
+    // Add these methods after the existing showdown method (around line 216)
+    Table.prototype.setCommunityCards = function (cards) {
+        assert_1.default(this._dealer !== undefined, 'Hand must be in progress');
+        this._dealer.setCommunityCards(cards.map(function (card) { return new card_1.default(card.rank, card.suit); }));
+    };
+    Table.prototype.setPlayerHoleCards = function (seatIndex, cards) {
+        assert_1.default(this._dealer !== undefined, 'Hand must be in progress');
+        this._dealer.setHoleCards(seatIndex, cards.map(function (card) { return new card_1.default(card.rank, card.suit); }));
+    };
+    Table.prototype.manualShowdown = function (communityCards, playerHoleCards) {
+        assert_1.default(this._dealer !== undefined, 'Hand must be in progress');
+        // Convert the facade Card format to internal Card format
+        var internalCommunityCards = communityCards.map(function (card) { return new card_1.default(card.rank, card.suit); });
+        var internalPlayerCards = new Map();
+        playerHoleCards.forEach(function (holeCards, seatIndex) {
+            internalPlayerCards.set(seatIndex, holeCards.map(function (card) { return new card_1.default(card.rank, card.suit); }));
+        });
+        this._dealer.manualShowdown(internalCommunityCards, internalPlayerCards);
         this.updateTablePlayers();
         this.standUpBustedPlayers();
     };

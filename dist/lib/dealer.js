@@ -28,7 +28,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Action = exports.ActionRange = void 0;
-var community_cards_1 = require("./community-cards");
+var community_cards_1 = __importStar(require("./community-cards"));
 var betting_round_1 = __importStar(require("./betting-round"));
 var pot_manager_1 = __importDefault(require("./pot-manager"));
 var assert_1 = __importDefault(require("assert"));
@@ -240,6 +240,29 @@ var Dealer = /** @class */ (function () {
         assert_1.default(!this.handInProgress(), 'Hand must not be in progress');
         return this._winners;
     };
+    Dealer.prototype.setCommunityCards = function (cards) {
+        assert_1.default(cards.length <= 5, 'Cannot set more than 5 community cards');
+        this._communityCards = new community_cards_1.default();
+        this._communityCards.deal(cards);
+    };
+    Dealer.prototype.setHoleCards = function (seatIndex, cards) {
+        assert_1.default(cards.length === 2, 'Hole cards must be exactly 2 cards');
+        assert_1.default(seatIndex >= 0 && seatIndex < this._holeCards.length, 'Invalid seat index');
+        this._holeCards[seatIndex] = cards;
+    };
+    Dealer.prototype.manualShowdown = function (communityCards, playerHoleCards) {
+        var _this = this;
+        assert_1.default(communityCards.length === 5, 'Must provide exactly 5 community cards');
+        this._handInProgress = false;
+        // Set the community cards
+        this.setCommunityCards(communityCards);
+        // Set hole cards for players still in the hand
+        playerHoleCards.forEach(function (holeCards, seatIndex) {
+            _this.setHoleCards(seatIndex, holeCards);
+        });
+        // Run the existing showdown logic
+        this.evaluateAndDistributePots();
+    };
     Dealer.prototype.showdown = function () {
         var _this = this;
         assert_1.default(this._roundOfBetting === community_cards_1.RoundOfBetting.RIVER, 'Round of betting must be river');
@@ -304,6 +327,68 @@ var Dealer = /** @class */ (function () {
         for (var _i = 0, _a = this._potManager.pots(); _i < _a.length; _i++) {
             var pot = _a[_i];
             _loop_1(pot);
+        }
+    };
+    Dealer.prototype.evaluateAndDistributePots = function () {
+        var _this = this;
+        if (this._potManager.pots().length === 1 && this._potManager.pots()[0].eligiblePlayers().length === 1) {
+            // No need to evaluate the hand. There is only one player.
+            var index = this._potManager.pots()[0].eligiblePlayers()[0];
+            var player = this._players[index];
+            assert_1.default(player !== null);
+            player.addToStack(this._potManager.pots()[0].size());
+            return;
+            // TODO: Also, no reveals in this case. Reveals are only necessary when there is >=2 players.
+        }
+        var _loop_2 = function (pot) {
+            var playerResults = pot.eligiblePlayers().map(function (seatIndex) {
+                return [seatIndex, hand_1.default.create(_this._holeCards[seatIndex], _this._communityCards)];
+            });
+            playerResults.sort(function (_a, _b) {
+                var first = _a[1];
+                var second = _b[1];
+                return hand_1.default.compare(first, second);
+            });
+            var lastWinnerIndex = array_1.findIndexAdjacent(playerResults, function (_a, _b) {
+                var first = _a[1];
+                var second = _b[1];
+                return hand_1.default.compare(first, second) !== 0;
+            });
+            var numberOfWinners = lastWinnerIndex === -1 ? playerResults.length : lastWinnerIndex + 1;
+            var oddChips = pot.size() % numberOfWinners;
+            var payout = (pot.size() - oddChips) / numberOfWinners;
+            var winningPlayerResults = playerResults.slice(0, numberOfWinners);
+            winningPlayerResults.forEach(function (playerResult) {
+                var _a;
+                var seatIndex = playerResult[0];
+                (_a = _this._players[seatIndex]) === null || _a === void 0 ? void 0 : _a.addToStack(payout);
+            });
+            this_2._winners.push(winningPlayerResults.map(function (playerResult) {
+                var seatIndex = playerResult[0];
+                var holeCards = _this._holeCards[seatIndex];
+                return __spreadArray(__spreadArray([], playerResult), [holeCards]);
+            }));
+            if (oddChips !== 0) {
+                // Distribute the odd chips to the first players, counting clockwise, after the dealer button
+                var winners_2 = new Array(this_2._players.length).fill(null);
+                winningPlayerResults.forEach(function (playerResult) {
+                    var seatIndex = playerResult[0];
+                    winners_2[seatIndex] = _this._players[seatIndex];
+                });
+                var seat = this_2._button;
+                while (oddChips !== 0) {
+                    seat = array_1.nextOrWrap(winners_2, seat);
+                    var winner = winners_2[seat];
+                    assert_1.default(winner !== null);
+                    winner.addToStack(1);
+                    oddChips--;
+                }
+            }
+        };
+        var this_2 = this;
+        for (var _i = 0, _a = this._potManager.pots(); _i < _a.length; _i++) {
+            var pot = _a[_i];
+            _loop_2(pot);
         }
     };
     Dealer.prototype.nextOrWrap = function (seat) {

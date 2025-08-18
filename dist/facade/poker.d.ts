@@ -56,6 +56,11 @@ export default class Poker {
     actionTaken(action: 'fold' | 'check' | 'call' | 'bet' | 'raise', betSize?: number): void;
     endBettingRound(): void;
     showdown(): void;
+    setCommunityCards(cards: Card[]): void;
+    setPlayerHoleCards(seatIndex: number, cards: Card[]): void;
+    manualShowdown(communityCards: Card[], playerHoleCards: {
+        [seatIndex: number]: Card[];
+    }): void;
     winners(): [SeatIndex, {
         cards: Card[];
         ranking: HandRanking;

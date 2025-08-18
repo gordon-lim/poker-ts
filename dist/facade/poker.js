@@ -167,6 +167,37 @@ var Poker = /** @class */ (function () {
     Poker.prototype.showdown = function () {
         this._table.showdown();
     };
+    // Add these methods after the existing showdown method (around line 177)
+    Poker.prototype.setCommunityCards = function (cards) {
+        // Convert facade Card format to internal format
+        var internalCards = cards.map(function (card) { return ({
+            rank: card_1.CardRank[card.rank.replace('T', '10')],
+            suit: card_1.CardSuit[card.suit.toUpperCase()]
+        }); });
+        this._table.setCommunityCards(internalCards);
+    };
+    Poker.prototype.setPlayerHoleCards = function (seatIndex, cards) {
+        var internalCards = cards.map(function (card) { return ({
+            rank: card_1.CardRank[card.rank.replace('T', '10')],
+            suit: card_1.CardSuit[card.suit.toUpperCase()]
+        }); });
+        this._table.setPlayerHoleCards(seatIndex, internalCards);
+    };
+    Poker.prototype.manualShowdown = function (communityCards, playerHoleCards) {
+        // Convert facade cards to internal Card instances
+        var convertCard = function (card) {
+            var rank = card_1.CardRank[card.rank.replace('T', '_10')];
+            var suit = card_1.CardSuit[card.suit.toUpperCase()];
+            return { rank: rank, suit: suit };
+        };
+        var internalCommunityCards = communityCards.map(convertCard);
+        var playerCardsMap = new Map();
+        Object.entries(playerHoleCards).forEach(function (_a) {
+            var seatIndex = _a[0], cards = _a[1];
+            playerCardsMap.set(parseInt(seatIndex), cards.map(convertCard));
+        });
+        this._table.manualShowdown(internalCommunityCards, playerCardsMap);
+    };
     Poker.prototype.winners = function () {
         return this._table.winners().map(function (potWinners) { return potWinners.map(function (winner) {
             var seatIndex = winner[0], hand = winner[1], holeCards = winner[2];

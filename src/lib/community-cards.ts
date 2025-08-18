@@ -27,4 +27,8 @@ export default class CommunityCards {
         assert(cards.length <= 5 - this._cards.length, 'Cannot deal more than there is undealt cards')
         this._cards = this._cards.concat(cards)
     }
+
+    reset(): void {
+        this._cards = []
+    }
 }

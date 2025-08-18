@@ -175,6 +175,40 @@ export default class Poker {
     showdown(): void {
         this._table.showdown()
     }
+    // Add these methods after the existing showdown method (around line 177)
+    setCommunityCards(cards: Card[]): void {
+        // Convert facade Card format to internal format
+        const internalCards = cards.map(card => ({
+            rank: CardRank[card.rank.replace('T', '10')],
+            suit: CardSuit[card.suit.toUpperCase()]
+        }))
+        this._table.setCommunityCards(internalCards)
+    }
+
+    setPlayerHoleCards(seatIndex: number, cards: Card[]): void {
+        const internalCards = cards.map(card => ({
+            rank: CardRank[card.rank.replace('T', '10')],
+            suit: CardSuit[card.suit.toUpperCase()]
+        }))
+        this._table.setPlayerHoleCards(seatIndex, internalCards)
+    }
+
+    manualShowdown(communityCards: Card[], playerHoleCards: { [seatIndex: number]: Card[] }): void {
+        // Convert facade cards to internal Card instances
+        const convertCard = (card: Card) => {
+            const rank = CardRank[card.rank.replace('T', '_10') as keyof typeof CardRank]
+            const suit = CardSuit[card.suit.toUpperCase() as keyof typeof CardSuit]
+            return { rank, suit }
+        }
+        
+        const internalCommunityCards = communityCards.map(convertCard)
+        const playerCardsMap = new Map()
+        Object.entries(playerHoleCards).forEach(([seatIndex, cards]) => {
+            playerCardsMap.set(parseInt(seatIndex), cards.map(convertCard))
+        })
+        
+        this._table.manualShowdown(internalCommunityCards, playerCardsMap)
+    }
 
     winners(): [SeatIndex, { cards: Card[], ranking: HandRanking, strength: number }, Card[]][][] {
         return this._table.winners().map(potWinners => potWinners.map(winner => {

@@ -1,5 +1,7 @@
 import Table, { AutomaticAction } from '../../src/lib/table'
 import { Action } from '../../src/lib/dealer'
+import Card, {CardRank, CardSuit} from '../../src/lib/card'
+import { HandRanking } from '../../src/lib/hand'
 
 describe('Table', () => {
     let table: Table
@@ -642,6 +644,171 @@ describe('Table', () => {
             table.standUp(2)
             table.actionTaken(Action.FOLD)
             expect(table.bettingRoundInProgress()).toBeFalsy()
+        })
+    })
+
+    describe('Manual showdown', () => {
+
+        let initialStack0: number
+        let initialStack1: number
+        let initialStack2: number
+
+        beforeEach(() => {
+            table.sitDown(0, 1000)
+            table.sitDown(1, 1000)
+            table.sitDown(2, 1000)
+
+            // Capture initial stacks before any betting occurs
+            initialStack0 = table.seats()[0]!.stack()
+            initialStack1 = table.seats()[1]!.stack()
+            initialStack2 = table.seats()[2]!.stack()
+
+            table.startHand()
+        })
+
+        describe('setCommunityCards', () => {
+            test('should set community cards correctly', () => {
+                const testCards = [
+                    new Card(CardRank.A, CardSuit.SPADES),
+                    new Card(CardRank.K, CardSuit.SPADES),
+                    new Card(CardRank.Q, CardSuit.SPADES),
+                    new Card(CardRank.J, CardSuit.SPADES),
+                    new Card(CardRank.T, CardSuit.SPADES)
+                ]
+
+                table.setCommunityCards(testCards)
+                
+                const communityCards = table.communityCards().cards()
+                expect(communityCards).toHaveLength(5)
+                expect(communityCards[0].rank).toBe(CardRank.A)
+                expect(communityCards[0].suit).toBe(CardSuit.SPADES)
+            })
+
+            test('should throw error when hand is not in progress', () => {
+                // End the hand first
+                table.actionTaken(Action.FOLD)
+                table.actionTaken(Action.FOLD)
+                table.endBettingRound()
+                table.showdown()
+
+                const testCards = [new Card(CardRank.A, CardSuit.SPADES)]
+                expect(() => table.setCommunityCards(testCards)).toThrow('Hand must be in progress')
+            })
+        })
+
+        describe('setPlayerHoleCards', () => {
+            test('should set hole cards for a player correctly', () => {
+                const testCards = [
+                    new Card(CardRank.A, CardSuit.HEARTS),
+                    new Card(CardRank.K, CardSuit.HEARTS)
+                ]
+
+                expect(() => table.setPlayerHoleCards(0, testCards)).not.toThrow()
+                
+                const holeCards = table.holeCards()
+                expect(holeCards[0]).toHaveLength(2)
+                expect(holeCards[0]![0].rank).toBe(CardRank.A)
+                expect(holeCards[0]![0].suit).toBe(CardSuit.HEARTS)
+            })
+
+            test('should throw error when hand is not in progress', () => {
+                // End the hand first
+                table.actionTaken(Action.FOLD)
+                table.actionTaken(Action.FOLD)
+                table.endBettingRound()
+                table.showdown()
+
+                const testCards = [
+                    new Card(CardRank.A, CardSuit.HEARTS),
+                    new Card(CardRank.K, CardSuit.HEARTS)
+                ]
+                expect(() => table.setPlayerHoleCards(0, testCards)).toThrow('Hand must be in progress')
+            })
+        })
+
+        describe('all players reach showdown', () => {
+            beforeEach(() => {
+                // Complete all betting rounds to reach showdown state
+                table.actionTaken(Action.CALL) // Player 0 calls
+                table.actionTaken(Action.CALL) // Player 1 calls  
+                table.actionTaken(Action.CHECK) // Player 2 checks
+                table.endBettingRound() // End preflop
+                
+                table.actionTaken(Action.CHECK) // Player 1 checks
+                table.actionTaken(Action.CHECK) // Player 2 checks
+                table.actionTaken(Action.CHECK) // Player 0 checks
+                table.endBettingRound() // End flop
+                
+                table.actionTaken(Action.CHECK) // Player 1 checks
+                table.actionTaken(Action.CHECK) // Player 2 checks
+                table.actionTaken(Action.CHECK) // Player 0 checks
+                table.endBettingRound() // End turn
+                
+                table.actionTaken(Action.CHECK) // Player 1 checks
+                table.actionTaken(Action.CHECK) // Player 2 checks
+                table.actionTaken(Action.CHECK) // Player 0 checks
+                table.endBettingRound() // End river
+            })
+
+            test('should perform manual showdown with royal flush winner', () => {
+                const communityCards = [
+                    new Card(CardRank.A, CardSuit.HEARTS),
+                    new Card(CardRank.K, CardSuit.HEARTS),
+                    new Card(CardRank.Q, CardSuit.HEARTS),
+                    new Card(CardRank.J, CardSuit.HEARTS),
+                    new Card(CardRank.K, CardSuit.SPADES)
+                ]
+
+                const playerCards = new Map()
+                playerCards.set(0, [new Card(CardRank.T, CardSuit.HEARTS), new Card(CardRank._8, CardSuit.HEARTS)]) // Royal flush
+                playerCards.set(1, [new Card(CardRank.A, CardSuit.SPADES), new Card(CardRank.K, CardSuit.SPADES)]) // Full house
+                playerCards.set(2, [new Card(CardRank._2, CardSuit.CLUBS), new Card(CardRank._3, CardSuit.CLUBS)]) // High card
+
+                table.manualShowdown(communityCards, playerCards)
+
+                expect(table.handInProgress()).toBeFalsy()
+                // Player 0 should win the entire pot
+                expect(table.seats()[0]!.stack()).toBeGreaterThan(initialStack0)
+                expect(table.seats()[1]!.stack()).toBeLessThan(initialStack1)
+                expect(table.seats()[2]!.stack()).toBeLessThan(initialStack2)
+
+                const winners = table.winners()
+                expect(winners).toHaveLength(1) // One pot
+                expect(winners[0]).toHaveLength(1) // One winner in that pot
+                expect(winners[0][0][0]).toBe(0) // Seat index 0 won
+                expect(winners[0][0][1].ranking()).toBe(HandRanking.ROYAL_FLUSH)
+            })
+
+            test('should handle split pot in manual showdown', () => {
+                const communityCards = [
+                    new Card(CardRank.A, CardSuit.CLUBS),
+                    new Card(CardRank._7, CardSuit.DIAMONDS),
+                    new Card(CardRank.T, CardSuit.SPADES),
+                    new Card(CardRank._5, CardSuit.HEARTS),
+                    new Card(CardRank._3, CardSuit.CLUBS)
+                ]
+
+                const playerCards = new Map()
+                playerCards.set(0, [new Card(CardRank.A, CardSuit.SPADES), new Card(CardRank.K, CardSuit.CLUBS)]) // Royal flush (tie)
+                playerCards.set(1, [new Card(CardRank.A, CardSuit.HEARTS), new Card(CardRank.K, CardSuit.DIAMONDS)]) // Royal flush (tie)
+                playerCards.set(2, [new Card(CardRank._2, CardSuit.CLUBS), new Card(CardRank._6, CardSuit.CLUBS)]) // High card
+
+                table.manualShowdown(communityCards, playerCards)
+
+                expect(table.handInProgress()).toBeFalsy()
+                // Both players should have equal stacks (split pot)
+                expect(table.seats()[0]!.stack()).toBe(table.seats()[1]!.stack())
+            })
+
+            test('should throw error when hand is not in progress', () => {
+                // End the hand first
+                table.showdown()
+
+                const communityCards = [new Card(CardRank.A, CardSuit.HEARTS)]
+                const playerCards = new Map()
+
+                expect(() => table.manualShowdown(communityCards, playerCards)).toThrow('Hand must be in progress')
+            })
         })
     })
 })

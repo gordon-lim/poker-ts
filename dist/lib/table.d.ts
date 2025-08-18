@@ -3,6 +3,7 @@ import { SeatIndex } from 'types/seat-index';
 import { ForcedBets } from 'types/forced-bets';
 import CommunityCards, { RoundOfBetting } from './community-cards';
 import { Action, ActionRange } from './dealer';
+import Card from './card';
 import Pot from './pot';
 import { HoleCards } from 'types/hole-cards';
 import { Chips } from 'types/chips';
@@ -49,6 +50,9 @@ export default class Table {
     actionTaken(action: Action, bet?: Chips): void;
     endBettingRound(): void;
     showdown(): void;
+    setCommunityCards(cards: Card[]): void;
+    setPlayerHoleCards(seatIndex: SeatIndex, cards: Card[]): void;
+    manualShowdown(communityCards: Card[], playerHoleCards: Map<SeatIndex, Card[]>): void;
     winners(): [SeatIndex, Hand, HoleCards][][];
     automaticActions(): (AutomaticAction | null)[];
     canSetAutomaticAction(seat: SeatIndex): boolean;

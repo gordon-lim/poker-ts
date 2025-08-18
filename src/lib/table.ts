@@ -4,6 +4,7 @@ import { ForcedBets } from 'types/forced-bets'
 import Deck from './deck'
 import CommunityCards, { RoundOfBetting } from './community-cards'
 import Dealer, { Action, ActionRange } from './dealer'
+import Card from './card'
 import assert from 'assert'
 import Pot from './pot'
 import { HoleCards } from 'types/hole-cards'
@@ -211,6 +212,36 @@ export default class Table {
         assert(this._dealer !== undefined)
 
         this._dealer.showdown()
+        this.updateTablePlayers()
+        this.standUpBustedPlayers()
+    }
+
+
+    setCommunityCards(cards: Card[]): void {
+        assert(this.handInProgress(), 'Hand must be in progress')
+        assert(this._dealer !== undefined)
+        this._dealer.setCommunityCards(cards.map(card => new Card(card.rank, card.suit)))
+    }
+
+    setPlayerHoleCards(seatIndex: SeatIndex, cards: Card[]): void {
+        assert(this.handInProgress(), 'Hand must be in progress')
+        assert(this._dealer !== undefined)
+        this._dealer.setHoleCards(seatIndex, cards.map(card => new Card(card.rank, card.suit)))
+    }
+
+    manualShowdown(communityCards: Card[], playerHoleCards: Map<SeatIndex, Card[]>): void {
+        assert(this.handInProgress(), 'Hand must be in progress')
+        assert(this._dealer !== undefined)
+        
+        // Convert the facade Card format to internal Card format
+        const internalCommunityCards = communityCards.map(card => new Card(card.rank, card.suit))
+        const internalPlayerCards = new Map()
+        
+        playerHoleCards.forEach((holeCards, seatIndex) => {
+            internalPlayerCards.set(seatIndex, holeCards.map(card => new Card(card.rank, card.suit)))
+        })
+        
+        this._dealer.manualShowdown(internalCommunityCards, internalPlayerCards)
         this.updateTablePlayers()
         this.standUpBustedPlayers()
     }

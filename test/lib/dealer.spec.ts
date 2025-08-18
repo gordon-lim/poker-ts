@@ -5,6 +5,7 @@ import CommunityCards, {RoundOfBetting} from '../../src/lib/community-cards'
 import {SeatArray} from '../../src/types/seat-array'
 import Player from '../../src/lib/player'
 import Card, {CardRank, CardSuit} from '../../src/lib/card'
+import { makeCards } from '../helper/card'
 import {
     shuffleForThreePlayersWithTwoWinners,
     shuffleForTwoPlayersDraw,
@@ -681,6 +682,175 @@ describe('Dealer', () => {
                 expect(() => {
                     dealer.startHand()
                 }).not.toThrow()
+            })
+        })
+    })
+
+    describe('Manual showdown', () => {
+        let players: SeatArray
+        let dealer: Dealer
+        let forcedBets: ForcedBets
+        let deck: Deck
+        let communityCards: CommunityCards
+        let initialStack0: number
+        let initialStack1: number
+        let initialStack2: number
+
+        beforeEach(() => {
+            forcedBets = { blinds: { big: 50, small: 25 } }
+            deck = new Deck(() => {})
+            communityCards = new CommunityCards()
+            players = new Array(9).fill(null)
+            players[0] = new Player(1000)
+            players[1] = new Player(1000)
+            players[2] = new Player(1000)
+            
+            // Capture initial stacks before any betting occurs
+            initialStack0 = players[0]!.stack()
+            initialStack1 = players[1]!.stack()
+            initialStack2 = players[2]!.stack()
+            
+            dealer = new Dealer(players, 0, forcedBets, deck, communityCards)
+            dealer.startHand()
+        })
+
+        describe('setCommunityCards', () => {
+            test('should set community cards correctly', () => {
+                const testCards = makeCards('As Ks Qs Js Ts')
+                dealer.setCommunityCards(testCards)
+                
+                // Access community cards through a method that doesn't require full game state
+                expect(dealer._communityCards.cards()).toHaveLength(5)
+                expect(dealer._communityCards.cards()[0].rank).toBe(CardRank.A)
+                expect(dealer._communityCards.cards()[0].suit).toBe(CardSuit.SPADES)
+            })
+
+            test('should throw error if more than 5 cards provided', () => {
+                const testCards = makeCards('As Ks Qs Js Ts 2h')
+                expect(() => dealer.setCommunityCards(testCards)).toThrow('Cannot set more than 5 community cards')
+            })
+
+            test('should allow setting fewer than 5 cards', () => {
+                const testCards = makeCards('As Ks Qs')
+                expect(() => dealer.setCommunityCards(testCards)).not.toThrow()
+                expect(dealer._communityCards.cards()).toHaveLength(3)
+            })
+        })
+
+        describe('setHoleCards', () => {
+            test('should set hole cards for a player correctly', () => {
+                const testCards = makeCards('Ah Kh')
+                dealer.setHoleCards(0, testCards)
+                
+                const holeCards = dealer.holeCards()
+                expect(holeCards[0]).toHaveLength(2)
+                expect(holeCards[0]![0].rank).toBe(CardRank.A)
+                expect(holeCards[0]![0].suit).toBe(CardSuit.HEARTS)
+                expect(holeCards[0]![1].rank).toBe(CardRank.K)
+                expect(holeCards[0]![1].suit).toBe(CardSuit.HEARTS)
+            })
+
+            test('should throw error if not exactly 2 cards provided', () => {
+                const testCards = makeCards('Ah Kh Qh')
+                expect(() => dealer.setHoleCards(0, testCards)).toThrow('Hole cards must be exactly 2 cards')
+            })
+
+            test('should throw error for invalid seat index', () => {
+                const testCards = makeCards('Ah Kh')
+                expect(() => dealer.setHoleCards(-1, testCards)).toThrow('Invalid seat index')
+                expect(() => dealer.setHoleCards(10, testCards)).toThrow('Invalid seat index')
+            })
+        })
+
+        describe('all players reach showdown', () => {
+            beforeEach(() => {
+                // Set up a complete betting scenario to reach showdown state
+                dealer.actionTaken(Action.CALL) // Player 0 calls
+                dealer.actionTaken(Action.CALL) // Player 1 calls  
+                dealer.actionTaken(Action.CHECK) // Player 2 checks
+                dealer.endBettingRound() // End preflop
+                
+                dealer.actionTaken(Action.CHECK) // Player 1 checks
+                dealer.actionTaken(Action.CHECK) // Player 2 checks
+                dealer.actionTaken(Action.CHECK) // Player 0 checks
+                dealer.endBettingRound() // End flop
+                
+                dealer.actionTaken(Action.CHECK) // Player 1 checks
+                dealer.actionTaken(Action.CHECK) // Player 2 checks
+                dealer.actionTaken(Action.CHECK) // Player 0 checks
+                dealer.endBettingRound() // End turn
+                
+                dealer.actionTaken(Action.CHECK) // Player 1 checks
+                dealer.actionTaken(Action.CHECK) // Player 2 checks
+                dealer.actionTaken(Action.CHECK) // Player 0 checks
+                dealer.endBettingRound() // End river
+            })
+
+            test('should perform manual showdown with royal flush winner', () => {
+                const communityCards = makeCards('Ah Kh Qh Jh Ks')
+                const playerCards = new Map()
+                playerCards.set(0, makeCards('Th 8h')) // Royal flush
+                playerCards.set(1, makeCards('As Ks')) // Full house
+                playerCards.set(2, makeCards('2c 3c')) // Pair
+
+                dealer.manualShowdown(communityCards, playerCards)
+
+                expect(dealer.handInProgress()).toBeFalsy()
+                // Player 0 should win the entire pot (150 chips: 25+25+25+25+25+25)
+                expect(players[0]!.stack()).toBeGreaterThan(initialStack0)
+                expect(players[1]!.stack()).toBeLessThan(initialStack1)
+                expect(players[2]!.stack()).toBeLessThan(initialStack2)
+            })
+
+            test('should handle split pot correctly', () => {
+                const communityCards = makeCards('Ac 7d Ts 5h 3c')
+                const playerCards = new Map()
+                playerCards.set(0, makeCards('As Kc')) // Pair of aces (tie)
+                playerCards.set(1, makeCards('Ah Kd')) // Pair of aces (tie)
+                playerCards.set(2, makeCards('2c 6c')) // High card ace
+
+                dealer.manualShowdown(communityCards, playerCards)
+
+                expect(dealer.handInProgress()).toBeFalsy()
+                // Both players should have equal stacks (split pot)
+                expect(players[0]!.stack()).toBe(players[1]!.stack())
+                expect(players[0]!.stack()).toBeGreaterThan(initialStack0)
+                expect(players[1]!.stack()).toBeGreaterThan(initialStack1)
+            })
+
+            test('should throw error if not exactly 5 community cards provided', () => {
+                const communityCards = makeCards('Ah Kh Qh Jh')
+                const playerCards = new Map()
+                playerCards.set(0, makeCards('9h 8h'))
+
+                expect(() => dealer.manualShowdown(communityCards, playerCards)).toThrow('Must provide exactly 5 community cards')
+            })
+        })
+
+        describe('all but one player folds', () => {
+            beforeEach(() => {
+                dealer.actionTaken(Action.CALL) // Player 0 calls
+                dealer.actionTaken(Action.CALL) // Player 1 calls  
+                dealer.actionTaken(Action.CHECK) // Player 2 checks
+                dealer.endBettingRound() // End preflop
+
+                dealer.actionTaken(Action.RAISE, 50) // Player 1 raises
+                dealer.actionTaken(Action.FOLD) // Player 2 folds
+                dealer.actionTaken(Action.FOLD) // Player 0 folds
+                dealer.endBettingRound() // End flop
+            })
+
+            test('should handle single player remaining', () => {
+                const communityCards = makeCards('Ah Kh Qh Jh Th')
+                const playerCards = new Map()
+                playerCards.set(0, makeCards('9h 8h')) // Only one player
+
+                dealer.manualShowdown(communityCards, playerCards)
+
+                expect(dealer.handInProgress()).toBeFalsy()
+                expect(players[0]!.stack()).toBe(initialStack0 - 50)
+                expect(players[1]!.stack()).toBe(initialStack1 + 100)
+                expect(players[2]!.stack()).toBe(initialStack2 - 50)
             })
         })
     })
