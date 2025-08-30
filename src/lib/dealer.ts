@@ -123,6 +123,37 @@ export default class Dealer {
         return this._bettingRound?.isContested() ?? false
     }
 
+    /**
+     * Checks if the current betting round is at its very beginning with no actions taken yet.
+     * This indicates that the first player to act has not yet made any decision.
+     * 
+     * This is useful for determining if you're at the initial state of a betting round
+     * where no betting has occurred.
+     * 
+     * @returns true if no actions have been taken and a betting round is in progress
+     * @throws {AssertionError} if no hand is in progress
+     */
+    isAtStartOfBettingRound(): boolean {
+        assert(this.handInProgress(), 'Hand must be in progress')
+        return this._bettingRound?.isAtStartOfBettingRound() ?? false
+    }
+
+    /**
+     * Checks if the current betting round has actions taken but is still in progress.
+     * This means at least one player has acted but there are still more actions required
+     * before the betting round can be completed.
+     * 
+     * This is useful for determining if you're in the middle of active betting where
+     * some players have acted but the round hasn't finished yet.
+     * 
+     * @returns true if actions have been taken but the betting round is still in progress
+     * @throws {AssertionError} if no hand is in progress
+     */
+    isInMiddleOfBettingRound(): boolean {
+        assert(this.handInProgress(), 'Hand must be in progress')
+        return this._bettingRound?.isInMiddleOfBettingRound() ?? false
+    }
+
     legalActions(): ActionRange {
         assert(this.bettingRoundInProgress(), 'Betting round must be in progress')
         assert(this._bettingRound !== null)
@@ -278,81 +309,37 @@ export default class Dealer {
 
         this._handInProgress = false
 
-        if (this._potManager.pots().length === 1 && this._potManager.pots()[0].eligiblePlayers().length === 1) {
-            // No need to evaluate the hand. There is only one player.
-            const index = this._potManager.pots()[0].eligiblePlayers()[0]
-            const player = this._players[index]
-            assert(player !== null)
-            player.addToStack(this._potManager.pots()[0].size())
-            return
-
-            // TODO: Also, no reveals in this case. Reveals are only necessary when there is >=2 players.
-        }
-
-        for (const pot of this._potManager.pots()) {
-            const playerResults: [SeatIndex, Hand][] = pot.eligiblePlayers().map(seatIndex => {
-                return [seatIndex, Hand.create(this._holeCards[seatIndex], this._communityCards)]
-            })
-
-            playerResults.sort(([, first], [, second]) => Hand.compare(first, second))
-
-            const lastWinnerIndex = findIndexAdjacent(playerResults, ([, first], [, second]) => {
-                return Hand.compare(first, second) !== 0
-            })
-            const numberOfWinners = lastWinnerIndex === -1 ? playerResults.length : lastWinnerIndex + 1
-            let oddChips = pot.size() % numberOfWinners
-            const payout = (pot.size() - oddChips) / numberOfWinners
-            const winningPlayerResults = playerResults.slice(0, numberOfWinners)
-
-            winningPlayerResults.forEach((playerResult: [SeatIndex, Hand]) => {
-                const [seatIndex] = playerResult
-                this._players[seatIndex]?.addToStack(payout)
-            })
-
-            this._winners.push(winningPlayerResults.map((playerResult: [SeatIndex, Hand]) => {
-                const [seatIndex] = playerResult
-                const holeCards = this._holeCards[seatIndex];
-
-                return [...playerResult, holeCards];
-            }))
-
-            if (oddChips !== 0) {
-                // Distribute the odd chips to the first players, counting clockwise, after the dealer button
-                const winners: SeatArray = new Array(this._players.length).fill(null)
-                winningPlayerResults.forEach((playerResult: [SeatIndex, Hand]) => {
-                    const [seatIndex] = playerResult
-                    winners[seatIndex] = this._players[seatIndex]
-                })
-
-                let seat = this._button
-                while (oddChips !== 0) {
-                    seat = nextOrWrap(winners, seat)
-                    const winner = winners[seat]
-                    assert(winner !== null)
-                    winner.addToStack(1)
-                    oddChips--
-                }
-            }
-        }
+        this.evaluateAndDistributePots()
     }
 
     private evaluateAndDistributePots(): void {
 
-        if (this._potManager.pots().length === 1 && this._potManager.pots()[0].eligiblePlayers().length === 1) {
-            // No need to evaluate the hand. There is only one player.
-            const index = this._potManager.pots()[0].eligiblePlayers()[0]
-            const player = this._players[index]
-            assert(player !== null)
-            player.addToStack(this._potManager.pots()[0].size())
-            return
+        if (this._potManager.pots().length === 1) {
+            const eligiblePlayersWithCards = this._potManager.pots()[0].eligiblePlayers()
+                .filter(seatIndex => this._holeCards[seatIndex] !== null)
+            if (eligiblePlayersWithCards.length === 1) {
+                // No need to evaluate the hand. There is only one player with hole cards.
+                const index = eligiblePlayersWithCards[0]
+                const player = this._players[index]
+                assert(player !== null)
+                player.addToStack(this._potManager.pots()[0].size())
+                return
 
-            // TODO: Also, no reveals in this case. Reveals are only necessary when there is >=2 players.
+                // TODO: Also, no reveals in this case. Reveals are only necessary when there is >=2 players.
+            }
         }
 
         for (const pot of this._potManager.pots()) {
-            const playerResults: [SeatIndex, Hand][] = pot.eligiblePlayers().map(seatIndex => {
-                return [seatIndex, Hand.create(this._holeCards[seatIndex], this._communityCards)]
-            })
+            const playerResults: [SeatIndex, Hand][] = pot.eligiblePlayers()
+                .filter(seatIndex => this._holeCards[seatIndex] !== null)
+                .map(seatIndex => {
+                    return [seatIndex, Hand.create(this._holeCards[seatIndex], this._communityCards)]
+                })
+
+            // If no players have hole cards, skip this pot (chips remain in pot)
+            if (playerResults.length === 0) {
+                continue
+            }
 
             playerResults.sort(([, first], [, second]) => Hand.compare(first, second))
 

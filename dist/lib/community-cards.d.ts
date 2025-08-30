@@ -10,4 +10,5 @@ export default class CommunityCards {
     private _cards;
     cards(): Card[];
     deal(cards: Card[]): void;
+    reset(): void;
 }

@@ -48,6 +48,29 @@ export default class Dealer {
     biggestBet(): Chips;
     bettingRoundInProgress(): boolean;
     isContested(): boolean;
+    /**
+     * Checks if the current betting round is at its very beginning with no actions taken yet.
+     * This indicates that the first player to act has not yet made any decision.
+     *
+     * This is useful for determining if you're at the initial state of a betting round
+     * where no betting has occurred.
+     *
+     * @returns true if no actions have been taken and a betting round is in progress
+     * @throws {AssertionError} if no hand is in progress
+     */
+    isAtStartOfBettingRound(): boolean;
+    /**
+     * Checks if the current betting round has actions taken but is still in progress.
+     * This means at least one player has acted but there are still more actions required
+     * before the betting round can be completed.
+     *
+     * This is useful for determining if you're in the middle of active betting where
+     * some players have acted but the round hasn't finished yet.
+     *
+     * @returns true if actions have been taken but the betting round is still in progress
+     * @throws {AssertionError} if no hand is in progress
+     */
+    isInMiddleOfBettingRound(): boolean;
     legalActions(): ActionRange;
     pots(): Pot[];
     button(): SeatIndex;

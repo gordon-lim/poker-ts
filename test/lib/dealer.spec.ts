@@ -854,4 +854,136 @@ describe('Dealer', () => {
             })
         })
     })
+
+    describe('betting round state functions', () => {
+        let players: SeatArray
+        let dealer: Dealer
+        let forcedBets: ForcedBets
+        let deck: Deck
+        let communityCards: CommunityCards
+
+        beforeEach(() => {
+            players = new Array(9).fill(null)
+            players[0] = new Player(1000)
+            players[1] = new Player(1000)
+            players[2] = new Player(1000)
+            
+            forcedBets = {
+                blinds: {
+                    small: 25,
+                    big: 50
+                }
+            }
+            
+            deck = new Deck()
+            communityCards = new CommunityCards()
+            dealer = new Dealer(players, 0, forcedBets, deck, communityCards)
+        })
+
+        describe('before hand starts', () => {
+            test('should throw error when checking betting round state without hand in progress', () => {
+                expect(() => dealer.isAtStartOfBettingRound()).toThrow('Hand must be in progress')
+                expect(() => dealer.isInMiddleOfBettingRound()).toThrow('Hand must be in progress')
+            })
+        })
+
+        describe('during hand', () => {
+            beforeEach(() => {
+                dealer.startHand()
+            })
+
+            test('should be at start of betting round initially', () => {
+                expect(dealer.handInProgress()).toBe(true)
+                expect(dealer.bettingRoundInProgress()).toBe(true)
+                expect(dealer.isAtStartOfBettingRound()).toBe(true)
+                expect(dealer.isInMiddleOfBettingRound()).toBe(false)
+            })
+
+            test('should be in middle of betting round after first action', () => {
+                // First player to act takes action
+                dealer.actionTaken(Action.CALL)
+                
+                expect(dealer.bettingRoundInProgress()).toBe(true)
+                expect(dealer.isAtStartOfBettingRound()).toBe(false)
+                expect(dealer.isInMiddleOfBettingRound()).toBe(true)
+            })
+
+            test('should transition through states correctly during betting', () => {
+                // Start state
+                expect(dealer.isAtStartOfBettingRound()).toBe(true)
+                expect(dealer.isInMiddleOfBettingRound()).toBe(false)
+
+                // First action - enter middle state
+                dealer.actionTaken(Action.CALL) // Player 0 calls
+                expect(dealer.isAtStartOfBettingRound()).toBe(false)
+                expect(dealer.isInMiddleOfBettingRound()).toBe(true)
+
+                // More actions - stay in middle state
+                dealer.actionTaken(Action.RAISE, 100) // Player 1 raises
+                expect(dealer.isAtStartOfBettingRound()).toBe(false)
+                expect(dealer.isInMiddleOfBettingRound()).toBe(true)
+
+                dealer.actionTaken(Action.CALL) // Player 2 calls
+                expect(dealer.isAtStartOfBettingRound()).toBe(false)
+                expect(dealer.isInMiddleOfBettingRound()).toBe(true)
+
+                dealer.actionTaken(Action.CALL) // Player 0 calls the raise
+                expect(dealer.isAtStartOfBettingRound()).toBe(false)
+                expect(dealer.isInMiddleOfBettingRound()).toBe(false) // Round ended
+                expect(dealer.bettingRoundInProgress()).toBe(false)
+            })
+
+            test('should handle folding players correctly', () => {
+                // Start state
+                expect(dealer.isAtStartOfBettingRound()).toBe(true)
+                
+                // Players fold one by one
+                dealer.actionTaken(Action.FOLD) // Player 0 folds
+                expect(dealer.isInMiddleOfBettingRound()).toBe(true)
+                
+                dealer.actionTaken(Action.FOLD) // Player 1 folds
+                // Now only player 2 remains, round should end
+                expect(dealer.bettingRoundInProgress()).toBe(false)
+                expect(dealer.isAtStartOfBettingRound()).toBe(false)
+                expect(dealer.isInMiddleOfBettingRound()).toBe(false)
+            })
+
+            test('should handle new betting round states correctly', () => {
+                // Complete first betting round
+                dealer.actionTaken(Action.CALL) // Player 0 calls
+                dealer.actionTaken(Action.CALL) // Player 1 calls  
+                dealer.actionTaken(Action.CHECK) // Player 2 checks
+                dealer.endBettingRound()
+
+                // New betting round should start fresh
+                expect(dealer.bettingRoundInProgress()).toBe(true)
+                expect(dealer.isAtStartOfBettingRound()).toBe(true)
+                expect(dealer.isInMiddleOfBettingRound()).toBe(false)
+
+                // First action in new round
+                dealer.actionTaken(Action.CHECK) // First player checks
+                expect(dealer.isAtStartOfBettingRound()).toBe(false)
+                expect(dealer.isInMiddleOfBettingRound()).toBe(true)
+            })
+        })
+
+        describe('edge cases', () => {
+            test('should handle all-in scenarios correctly', () => {
+                // Create players with limited chips
+                const limitedPlayers: SeatArray = new Array(9).fill(null)
+                limitedPlayers[0] = new Player(30) // Less than big blind
+                limitedPlayers[1] = new Player(75) // Just enough for one raise
+                limitedPlayers[2] = new Player(1000) // Normal stack
+                
+                const limitedDealer = new Dealer(limitedPlayers, 0, forcedBets, new Deck(), new CommunityCards())
+                limitedDealer.startHand()
+                
+                expect(limitedDealer.isAtStartOfBettingRound()).toBe(true)
+                
+                // Player goes all-in
+                limitedDealer.actionTaken(Action.CALL) // Player 0 goes all-in (30 chips)
+                expect(limitedDealer.isInMiddleOfBettingRound()).toBe(true)
+            })
+        })
+    })
 })

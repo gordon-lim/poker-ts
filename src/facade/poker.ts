@@ -6,6 +6,8 @@ import { Action as ActionFlag } from '../lib/dealer'
 import ChipRange from '../lib/chip-range'
 import { SeatIndex } from 'types/seat-index'
 import { HandRanking } from '../lib/hand'
+import { SeatArray } from 'types/seat-array'
+import { convertCard } from '../util/converter'
 
 export type Card = {
     rank: '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | 'T' | 'J' | 'Q' | 'K' | 'A'
@@ -97,6 +99,10 @@ export default class Poker {
         return this._table.numActivePlayers()
     }
 
+    initialHandPlayers(): SeatArray {
+        return this._table.initialHandPlayers()
+    }
+
     pots(): { size: number, eligiblePlayers: number[] }[] {
         return this._table.pots().map(pot => ({
             size: pot.size(),
@@ -138,6 +144,27 @@ export default class Poker {
         return this._table.bettingRoundsCompleted()
     }
 
+    /**
+     * Checks if the current betting round is at its very beginning with no actions taken yet.
+     * This indicates that the first player to act has not yet made any decision.
+     * 
+     * @returns true if no actions have been taken and a betting round is in progress
+     */
+    isAtStartOfBettingRound(): boolean {
+        return this._table.isAtStartOfBettingRound()
+    }
+
+    /**
+     * Checks if the current betting round has actions taken but is still in progress.
+     * This means at least one player has acted but there are still more actions required
+     * before the betting round can be completed.
+     * 
+     * @returns true if actions have been taken but the betting round is still in progress
+     */
+    isInMiddleOfBettingRound(): boolean {
+        return this._table.isInMiddleOfBettingRound()
+    }
+
     roundOfBetting(): 'preflop' | 'flop' | 'turn' | 'river' {
         const rob = this._table.roundOfBetting()
         // @ts-ignore
@@ -177,30 +204,16 @@ export default class Poker {
     }
     // Add these methods after the existing showdown method (around line 177)
     setCommunityCards(cards: Card[]): void {
-        // Convert facade Card format to internal format
-        const internalCards = cards.map(card => ({
-            rank: CardRank[card.rank.replace('T', '10')],
-            suit: CardSuit[card.suit.toUpperCase()]
-        }))
+        const internalCards = cards.map(convertCard)
         this._table.setCommunityCards(internalCards)
     }
 
     setPlayerHoleCards(seatIndex: number, cards: Card[]): void {
-        const internalCards = cards.map(card => ({
-            rank: CardRank[card.rank.replace('T', '10')],
-            suit: CardSuit[card.suit.toUpperCase()]
-        }))
+        const internalCards = cards.map(convertCard)
         this._table.setPlayerHoleCards(seatIndex, internalCards)
     }
 
     manualShowdown(communityCards: Card[], playerHoleCards: { [seatIndex: number]: Card[] }): void {
-        // Convert facade cards to internal Card instances
-        const convertCard = (card: Card) => {
-            const rank = CardRank[card.rank.replace('T', '_10') as keyof typeof CardRank]
-            const suit = CardSuit[card.suit.toUpperCase() as keyof typeof CardSuit]
-            return { rank, suit }
-        }
-        
         const internalCommunityCards = communityCards.map(convertCard)
         const playerCardsMap = new Map()
         Object.entries(playerHoleCards).forEach(([seatIndex, cards]) => {

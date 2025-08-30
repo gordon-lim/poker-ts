@@ -40,6 +40,16 @@ var Round = /** @class */ (function () {
     Round.prototype.isContested = function () {
         return this._contested;
     };
+    /**
+     * Returns true if no actions have been taken yet in this round.
+     * This indicates the round is at its initial state where the first player
+     * to act has not yet made any decision.
+     *
+     * @returns true if this is the very start of the betting round
+     */
+    Round.prototype.isFirstAction = function () {
+        return this._firstAction;
+    };
     Round.prototype.actionTaken = function (action) {
         assert_1.default(this.inProgress());
         assert_1.default(!(action & Action.PASSIVE && action & Action.AGGRESSIVE));

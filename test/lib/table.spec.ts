@@ -2,6 +2,7 @@ import Table, { AutomaticAction } from '../../src/lib/table'
 import { Action } from '../../src/lib/dealer'
 import Card, {CardRank, CardSuit} from '../../src/lib/card'
 import { HandRanking } from '../../src/lib/hand'
+import { RoundOfBetting } from '../../src/lib/community-cards'
 
 describe('Table', () => {
     let table: Table
@@ -750,7 +751,7 @@ describe('Table', () => {
                 table.endBettingRound() // End river
             })
 
-            test('should perform manual showdown with royal flush winner', () => {
+            test('should perform manual showdown k', () => {
                 const communityCards = [
                     new Card(CardRank.A, CardSuit.HEARTS),
                     new Card(CardRank.K, CardSuit.HEARTS),
@@ -808,6 +809,242 @@ describe('Table', () => {
                 const playerCards = new Map()
 
                 expect(() => table.manualShowdown(communityCards, playerCards)).toThrow('Hand must be in progress')
+            })
+
+            test('players without hole cards should automatically lose', () => {
+                const communityCards = [
+                    new Card(CardRank.A, CardSuit.HEARTS),
+                    new Card(CardRank.K, CardSuit.HEARTS),
+                    new Card(CardRank.Q, CardSuit.HEARTS),
+                    new Card(CardRank.J, CardSuit.HEARTS),
+                    new Card(CardRank.K, CardSuit.SPADES)
+                ]
+
+                // Only provide hole cards for player 0, not player 1
+                const playerCards = new Map()
+                playerCards.set(0, [new Card(CardRank.A, CardSuit.SPADES), new Card(CardRank.K, CardSuit.CLUBS)])
+                // Players 1 and 2 get no hole cards
+
+                table.manualShowdown(communityCards, playerCards)
+
+                // Player 0 should win the entire pot, players 1 and 2 should lose
+                expect(table.seats()[0]!.stack()).toBeGreaterThan(initialStack0)
+                expect(table.seats()[1]!.stack()).toBeLessThan(initialStack1)
+                expect(table.seats()[2]!.stack()).toBeLessThan(initialStack2)
+            })
+
+            test('should allow calling winners() after manual showdown', () => {
+                const communityCards = [
+                    new Card(CardRank.A, CardSuit.SPADES),
+                    new Card(CardRank.K, CardSuit.SPADES),
+                    new Card(CardRank.Q, CardSuit.SPADES),
+                    new Card(CardRank.J, CardSuit.SPADES),
+                    new Card(CardRank._9, CardSuit.CLUBS)
+                ]
+
+                const playerCards = new Map()
+                playerCards.set(0, [new Card(CardRank.T, CardSuit.HEARTS), new Card(CardRank._8, CardSuit.HEARTS)]) // Straight flush
+                // Player 1 is not included (folded/no cards)
+                playerCards.set(2, [new Card(CardRank._2, CardSuit.CLUBS), new Card(CardRank._3, CardSuit.CLUBS)]) // High card
+
+                // Perform manual showdown
+                table.manualShowdown(communityCards, playerCards)
+
+                // Verify hand is no longer in progress
+                expect(table.handInProgress()).toBeFalsy()
+
+                // Verify winners() can be called successfully
+                expect(() => table.winners()).not.toThrow()
+
+                // Verify winners() returns expected structure
+                const winners = table.winners()
+                expect(winners).toBeDefined()
+                expect(Array.isArray(winners)).toBeTruthy()
+                expect(winners.length).toBeGreaterThan(0)
+
+                // Verify the winner information is accessible
+                const firstPotWinners = winners[0]
+                expect(Array.isArray(firstPotWinners)).toBeTruthy()
+                expect(firstPotWinners.length).toBeGreaterThan(0)
+
+                // Each winner should have [seatIndex, hand, holeCards] structure
+                const winner = firstPotWinners[0]
+                expect(winner).toHaveLength(3)
+                expect(typeof winner[0]).toBe('number') // seat index
+                expect(winner[1]).toBeDefined() // hand object
+                expect(winner[2]).toBeDefined() // hole cards
+            })
+        })
+    })
+
+    describe('betting round state functions', () => {
+        let table: Table
+
+        beforeEach(() => {
+            table = new Table({
+                blinds: {
+                    small: 25,
+                    big: 50
+                }
+            }, 9)
+            table.sitDown(0, 1000)
+            table.sitDown(1, 1000)
+            table.sitDown(2, 1000)
+        })
+
+        describe('before hand starts', () => {
+            test('should throw error when checking betting round state without hand in progress', () => {
+                expect(() => table.isAtStartOfBettingRound()).toThrow('Hand must be in progress')
+                expect(() => table.isInMiddleOfBettingRound()).toThrow('Hand must be in progress')
+            })
+        })
+
+        describe('during hand', () => {
+            beforeEach(() => {
+                table.startHand()
+            })
+
+            test('should be at start of betting round initially', () => {
+                expect(table.handInProgress()).toBe(true)
+                expect(table.bettingRoundInProgress()).toBe(true)
+                expect(table.isAtStartOfBettingRound()).toBe(true)
+                expect(table.isInMiddleOfBettingRound()).toBe(false)
+            })
+
+            test('should be in middle of betting round after first action', () => {
+                // First player to act takes action
+                table.actionTaken(Action.CALL)
+                
+                expect(table.bettingRoundInProgress()).toBe(true)
+                expect(table.isAtStartOfBettingRound()).toBe(false)
+                expect(table.isInMiddleOfBettingRound()).toBe(true)
+            })
+
+            test('should transition through states correctly during betting', () => {
+                // Start state
+                expect(table.isAtStartOfBettingRound()).toBe(true)
+                expect(table.isInMiddleOfBettingRound()).toBe(false)
+
+                // First action - enter middle state
+                table.actionTaken(Action.CALL) // Player 0 calls
+                expect(table.isAtStartOfBettingRound()).toBe(false)
+                expect(table.isInMiddleOfBettingRound()).toBe(true)
+
+                // More actions - stay in middle state
+                table.actionTaken(Action.RAISE, 100) // Player 1 raises
+                expect(table.isAtStartOfBettingRound()).toBe(false)
+                expect(table.isInMiddleOfBettingRound()).toBe(true)
+
+                table.actionTaken(Action.CALL) // Player 2 calls
+                expect(table.isAtStartOfBettingRound()).toBe(false)
+                expect(table.isInMiddleOfBettingRound()).toBe(true)
+
+                table.actionTaken(Action.CALL) // Player 0 calls the raise
+                expect(table.isAtStartOfBettingRound()).toBe(false)
+                expect(table.isInMiddleOfBettingRound()).toBe(false) // Round ended
+                expect(table.bettingRoundInProgress()).toBe(false)
+            })
+
+            test('should handle folding players correctly', () => {
+                // Start state
+                expect(table.isAtStartOfBettingRound()).toBe(true)
+                
+                // Players fold one by one
+                table.actionTaken(Action.FOLD) // Player 0 folds
+                expect(table.isInMiddleOfBettingRound()).toBe(true)
+                
+                table.actionTaken(Action.FOLD) // Player 1 folds
+                // Now only player 2 remains, round should end
+                expect(table.bettingRoundInProgress()).toBe(false)
+                expect(table.isAtStartOfBettingRound()).toBe(false)
+                expect(table.isInMiddleOfBettingRound()).toBe(false)
+            })
+
+            test('should handle multiple betting rounds correctly', () => {
+                // Complete first betting round (preflop)
+                table.actionTaken(Action.CALL) // Player 0 calls
+                table.actionTaken(Action.CALL) // Player 1 calls  
+                table.actionTaken(Action.CHECK) // Player 2 checks
+                table.endBettingRound()
+
+                // New betting round (flop) should start fresh
+                expect(table.bettingRoundInProgress()).toBe(true)
+                expect(table.isAtStartOfBettingRound()).toBe(true)
+                expect(table.isInMiddleOfBettingRound()).toBe(false)
+                expect(table.roundOfBetting()).toBe(RoundOfBetting.FLOP)
+
+                // First action in flop
+                table.actionTaken(Action.CHECK) // First player checks
+                expect(table.isAtStartOfBettingRound()).toBe(false)
+                expect(table.isInMiddleOfBettingRound()).toBe(true)
+
+                // Complete flop betting
+                table.actionTaken(Action.BET, 50) // Second player bets
+                table.actionTaken(Action.CALL) // Third player calls
+                table.actionTaken(Action.CALL) // First player calls
+                table.endBettingRound()
+
+                // Turn betting round
+                expect(table.isAtStartOfBettingRound()).toBe(true)
+                expect(table.isInMiddleOfBettingRound()).toBe(false)
+                expect(table.roundOfBetting()).toBe(RoundOfBetting.TURN)
+            })
+
+            test('should handle check-check-check scenario correctly', () => {
+                // All players check
+                table.actionTaken(Action.CALL) // Player 0 calls big blind
+                table.actionTaken(Action.CALL) // Player 1 calls
+                table.actionTaken(Action.CHECK) // Player 2 (big blind) checks
+                
+                // Round should end
+                expect(table.bettingRoundInProgress()).toBe(false)
+                expect(table.isAtStartOfBettingRound()).toBe(false)
+                expect(table.isInMiddleOfBettingRound()).toBe(false)
+            })
+        })
+
+        describe('integration with automatic actions', () => {
+            beforeEach(() => {
+                table.startHand()
+            })
+
+            test('should handle automatic actions correctly with state functions', () => {
+                // Set up automatic action for a player
+                table.setAutomaticAction(1, AutomaticAction.FOLD)
+                
+                expect(table.isAtStartOfBettingRound()).toBe(true)
+                
+                // First player acts, should trigger automatic fold for player 1
+                table.actionTaken(Action.CALL) // Player 0 calls
+                
+                // After automatic actions resolve
+                expect(table.isInMiddleOfBettingRound()).toBe(true)
+                expect(table.playerToAct()).toBe(2) // Should be player 2's turn now
+            })
+        })
+
+        describe('edge cases', () => {
+            test('should handle heads-up play correctly', () => {
+                // Create heads-up table
+                const headsUpTable = new Table({
+                    blinds: {
+                        small: 25,
+                        big: 50
+                    }
+                }, 9)
+                headsUpTable.sitDown(0, 1000)
+                headsUpTable.sitDown(1, 1000)
+                headsUpTable.startHand()
+                
+                expect(headsUpTable.isAtStartOfBettingRound()).toBe(true)
+                expect(headsUpTable.isInMiddleOfBettingRound()).toBe(false)
+                
+                // First action in heads-up
+                headsUpTable.actionTaken(Action.CALL) // Small blind calls
+                expect(headsUpTable.isInMiddleOfBettingRound()).toBe(true)
+                
+                headsUpTable.actionTaken(Action.CHECK) // Big blind checks
+                expect(headsUpTable.bettingRoundInProgress()).toBe(false)
             })
         })
     })

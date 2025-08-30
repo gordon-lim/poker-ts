@@ -27,6 +27,7 @@ export default class Table {
     private readonly _tablePlayers: SeatArray // All the players physically present at the table
     private readonly _deck: Deck
     private _handPlayers?: SeatArray
+    private _initialHandPlayers?: SeatArray // Snapshot of players who started the hand
     private _automaticActions?: (AutomaticAction | null)[]
     private _firstTimeButton = true
     private _buttonSetManually = false // has the button been set manually
@@ -54,7 +55,7 @@ export default class Table {
     }
 
     button(): SeatIndex {
-        assert(this.handInProgress(), 'Hand must be in progress')
+        // assert(this.handInProgress(), 'Hand must be in progress')
         assert(this._dealer !== undefined)
 
         return this._dealer.button()
@@ -76,6 +77,13 @@ export default class Table {
         assert(this._dealer !== undefined)
 
         return this._dealer.numActivePlayers()
+    }
+
+    initialHandPlayers(): SeatArray {
+        // assert(this.handInProgress(), 'Hand must be in progress')
+        assert(this._initialHandPlayers !== undefined)
+
+        return this._initialHandPlayers
     }
 
     pots(): Pot[] {
@@ -114,6 +122,7 @@ export default class Table {
         this._staged = new Array(this._numSeats).fill(false)
         this._automaticActions = new Array(this._numSeats).fill(null)
         this._handPlayers = this._tablePlayers.map(player => player ? new Player(player) : null)
+        this._initialHandPlayers = [...this._handPlayers] // Store a copy of initial hand players
         this.incrementButton()
         this._deck.fillAndShuffle()
         this._communityCards = new CommunityCards()
@@ -138,6 +147,41 @@ export default class Table {
         assert(this._dealer !== undefined)
 
         return this._dealer.bettingRoundsCompleted()
+    }
+
+    /**
+     * Checks if the current betting round is at its very beginning with no actions taken yet.
+     * This indicates that the first player to act has not yet made any decision.
+     * 
+     * This is the main public API method for determining if you're at the initial state 
+     * of a betting round where no betting actions have occurred yet.
+     * 
+     * @returns true if no actions have been taken and a betting round is in progress
+     * @throws {AssertionError} if no hand is in progress
+     */
+    isAtStartOfBettingRound(): boolean {
+        assert(this.handInProgress(), 'Hand must be in progress')
+        assert(this._dealer !== undefined)
+
+        return this._dealer.isAtStartOfBettingRound()
+    }
+
+    /**
+     * Checks if the current betting round has actions taken but is still in progress.
+     * This means at least one player has actions taken but there are still more actions required
+     * before the betting round can be completed.
+     * 
+     * This is the main public API method for determining if you're in the middle of 
+     * active betting where some players have acted but the round hasn't finished yet.
+     * 
+     * @returns true if actions have been taken but the betting round is still in progress
+     * @throws {AssertionError} if no hand is in progress
+     */
+    isInMiddleOfBettingRound(): boolean {
+        assert(this.handInProgress(), 'Hand must be in progress')
+        assert(this._dealer !== undefined)
+
+        return this._dealer.isInMiddleOfBettingRound()
     }
 
     roundOfBetting(): RoundOfBetting {

@@ -292,4 +292,184 @@ describe('Poker facade', () => {
             })
         })
     })
+
+    describe('betting round state functions', () => {
+        let poker: Poker
+
+        beforeEach(() => {
+            poker = new Poker({ bigBlind: 50, smallBlind: 25 }, 9)
+            poker.sitDown(0, 1000)
+            poker.sitDown(1, 1000)
+            poker.sitDown(2, 1000)
+        })
+
+        describe('before hand starts', () => {
+            test('should throw error when checking betting round state without hand in progress', () => {
+                expect(() => poker.isAtStartOfBettingRound()).toThrow('Hand must be in progress')
+                expect(() => poker.isInMiddleOfBettingRound()).toThrow('Hand must be in progress')
+            })
+        })
+
+        describe('during hand', () => {
+            beforeEach(() => {
+                poker.startHand()
+            })
+
+            test('should be at start of betting round initially', () => {
+                expect(poker.isHandInProgress()).toBe(true)
+                expect(poker.isBettingRoundInProgress()).toBe(true)
+                expect(poker.isAtStartOfBettingRound()).toBe(true)
+                expect(poker.isInMiddleOfBettingRound()).toBe(false)
+            })
+
+            test('should be in middle of betting round after first action', () => {
+                // First player to act takes action
+                poker.actionTaken('call')
+                
+                expect(poker.isBettingRoundInProgress()).toBe(true)
+                expect(poker.isAtStartOfBettingRound()).toBe(false)
+                expect(poker.isInMiddleOfBettingRound()).toBe(true)
+            })
+
+            test('should transition through states correctly during betting', () => {
+                // Start state
+                expect(poker.isAtStartOfBettingRound()).toBe(true)
+                expect(poker.isInMiddleOfBettingRound()).toBe(false)
+
+                // First action - enter middle state
+                poker.actionTaken('call') // Player 0 calls
+                expect(poker.isAtStartOfBettingRound()).toBe(false)
+                expect(poker.isInMiddleOfBettingRound()).toBe(true)
+
+                // More actions - stay in middle state
+                poker.actionTaken('raise', 100) // Player 1 raises
+                expect(poker.isAtStartOfBettingRound()).toBe(false)
+                expect(poker.isInMiddleOfBettingRound()).toBe(true)
+
+                poker.actionTaken('call') // Player 2 calls
+                expect(poker.isAtStartOfBettingRound()).toBe(false)
+                expect(poker.isInMiddleOfBettingRound()).toBe(true)
+
+                poker.actionTaken('call') // Player 0 calls the raise
+                expect(poker.isAtStartOfBettingRound()).toBe(false)
+                expect(poker.isInMiddleOfBettingRound()).toBe(false) // Round ended
+                expect(poker.isBettingRoundInProgress()).toBe(false)
+            })
+
+            test('should handle folding players correctly', () => {
+                // Start state
+                expect(poker.isAtStartOfBettingRound()).toBe(true)
+                
+                // Players fold one by one
+                poker.actionTaken('fold') // Player 0 folds
+                expect(poker.isInMiddleOfBettingRound()).toBe(true)
+                
+                poker.actionTaken('fold') // Player 1 folds
+                // Now only player 2 remains, round should end
+                expect(poker.isBettingRoundInProgress()).toBe(false)
+                expect(poker.isAtStartOfBettingRound()).toBe(false)
+                expect(poker.isInMiddleOfBettingRound()).toBe(false)
+            })
+
+            test('should handle multiple betting rounds correctly', () => {
+                // Complete first betting round (preflop)
+                poker.actionTaken('call') // Player 0 calls
+                poker.actionTaken('call') // Player 1 calls  
+                poker.actionTaken('check') // Player 2 checks
+                poker.endBettingRound()
+
+                // New betting round (flop) should start fresh
+                expect(poker.isBettingRoundInProgress()).toBe(true)
+                expect(poker.isAtStartOfBettingRound()).toBe(true)
+                expect(poker.isInMiddleOfBettingRound()).toBe(false)
+                expect(poker.roundOfBetting()).toBe('flop')
+
+                // First action in flop
+                poker.actionTaken('check') // First player checks
+                expect(poker.isAtStartOfBettingRound()).toBe(false)
+                expect(poker.isInMiddleOfBettingRound()).toBe(true)
+
+                // Complete flop betting
+                poker.actionTaken('bet', 50) // Second player bets
+                poker.actionTaken('call') // Third player calls
+                poker.actionTaken('call') // First player calls
+                poker.endBettingRound()
+
+                // Turn betting round
+                expect(poker.isAtStartOfBettingRound()).toBe(true)
+                expect(poker.isInMiddleOfBettingRound()).toBe(false)
+                expect(poker.roundOfBetting()).toBe('turn')
+            })
+
+            test('should work with legal actions integration', () => {
+                // At start, should have legal actions available
+                expect(poker.isAtStartOfBettingRound()).toBe(true)
+                const initialActions = poker.legalActions()
+                expect(initialActions.actions.length).toBeGreaterThan(0)
+
+                // After first action, should still have actions but different state
+                poker.actionTaken('call')
+                expect(poker.isInMiddleOfBettingRound()).toBe(true)
+                const middleActions = poker.legalActions()
+                expect(middleActions.actions.length).toBeGreaterThan(0)
+            })
+        })
+
+        describe('edge cases', () => {
+            test('should handle heads-up play correctly', () => {
+                // Create heads-up game
+                const headsUpPoker = new Poker({ bigBlind: 50, smallBlind: 25 }, 9)
+                headsUpPoker.sitDown(0, 1000)
+                headsUpPoker.sitDown(1, 1000)
+                headsUpPoker.startHand()
+                
+                expect(headsUpPoker.isAtStartOfBettingRound()).toBe(true)
+                expect(headsUpPoker.isInMiddleOfBettingRound()).toBe(false)
+                
+                // First action in heads-up
+                headsUpPoker.actionTaken('call') // Small blind calls
+                expect(headsUpPoker.isInMiddleOfBettingRound()).toBe(true)
+                
+                headsUpPoker.actionTaken('check') // Big blind checks
+                expect(headsUpPoker.isBettingRoundInProgress()).toBe(false)
+            })
+
+            test('should handle state checks across different game phases', () => {
+                // Preflop
+                poker.startHand()
+                expect(poker.isAtStartOfBettingRound()).toBe(true)
+                expect(poker.roundOfBetting()).toBe('preflop')
+
+                // Complete preflop
+                poker.actionTaken('call')
+                poker.actionTaken('call')
+                poker.actionTaken('check')
+                poker.endBettingRound()
+
+                // Flop
+                expect(poker.isAtStartOfBettingRound()).toBe(true)
+                expect(poker.roundOfBetting()).toBe('flop')
+
+                // Complete flop
+                poker.actionTaken('check')
+                poker.actionTaken('check')
+                poker.actionTaken('check')
+                poker.endBettingRound()
+
+                // Turn
+                expect(poker.isAtStartOfBettingRound()).toBe(true)
+                expect(poker.roundOfBetting()).toBe('turn')
+
+                // Complete turn
+                poker.actionTaken('check')
+                poker.actionTaken('check')
+                poker.actionTaken('check')
+                poker.endBettingRound()
+
+                // River
+                expect(poker.isAtStartOfBettingRound()).toBe(true)
+                expect(poker.roundOfBetting()).toBe('river')
+            })
+        })
+    })
 })

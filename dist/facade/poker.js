@@ -24,6 +24,7 @@ var table_1 = __importStar(require("../lib/table"));
 var community_cards_1 = require("../lib/community-cards");
 var card_1 = require("../lib/card");
 var dealer_1 = require("../lib/dealer");
+var converter_1 = require("../util/converter");
 var cardMapper = function (card) { return ({
     // @ts-ignore
     rank: card_1.CardRank[card.rank].replace(/^_/, ''),
@@ -103,6 +104,9 @@ var Poker = /** @class */ (function () {
     Poker.prototype.numActivePlayers = function () {
         return this._table.numActivePlayers();
     };
+    Poker.prototype.initialHandPlayers = function () {
+        return this._table.initialHandPlayers();
+    };
     Poker.prototype.pots = function () {
         return this._table.pots().map(function (pot) { return ({
             size: pot.size(),
@@ -135,6 +139,25 @@ var Poker = /** @class */ (function () {
     };
     Poker.prototype.areBettingRoundsCompleted = function () {
         return this._table.bettingRoundsCompleted();
+    };
+    /**
+     * Checks if the current betting round is at its very beginning with no actions taken yet.
+     * This indicates that the first player to act has not yet made any decision.
+     *
+     * @returns true if no actions have been taken and a betting round is in progress
+     */
+    Poker.prototype.isAtStartOfBettingRound = function () {
+        return this._table.isAtStartOfBettingRound();
+    };
+    /**
+     * Checks if the current betting round has actions taken but is still in progress.
+     * This means at least one player has acted but there are still more actions required
+     * before the betting round can be completed.
+     *
+     * @returns true if actions have been taken but the betting round is still in progress
+     */
+    Poker.prototype.isInMiddleOfBettingRound = function () {
+        return this._table.isInMiddleOfBettingRound();
     };
     Poker.prototype.roundOfBetting = function () {
         var rob = this._table.roundOfBetting();
@@ -169,32 +192,19 @@ var Poker = /** @class */ (function () {
     };
     // Add these methods after the existing showdown method (around line 177)
     Poker.prototype.setCommunityCards = function (cards) {
-        // Convert facade Card format to internal format
-        var internalCards = cards.map(function (card) { return ({
-            rank: card_1.CardRank[card.rank.replace('T', '10')],
-            suit: card_1.CardSuit[card.suit.toUpperCase()]
-        }); });
+        var internalCards = cards.map(converter_1.convertCard);
         this._table.setCommunityCards(internalCards);
     };
     Poker.prototype.setPlayerHoleCards = function (seatIndex, cards) {
-        var internalCards = cards.map(function (card) { return ({
-            rank: card_1.CardRank[card.rank.replace('T', '10')],
-            suit: card_1.CardSuit[card.suit.toUpperCase()]
-        }); });
+        var internalCards = cards.map(converter_1.convertCard);
         this._table.setPlayerHoleCards(seatIndex, internalCards);
     };
     Poker.prototype.manualShowdown = function (communityCards, playerHoleCards) {
-        // Convert facade cards to internal Card instances
-        var convertCard = function (card) {
-            var rank = card_1.CardRank[card.rank.replace('T', '_10')];
-            var suit = card_1.CardSuit[card.suit.toUpperCase()];
-            return { rank: rank, suit: suit };
-        };
-        var internalCommunityCards = communityCards.map(convertCard);
+        var internalCommunityCards = communityCards.map(converter_1.convertCard);
         var playerCardsMap = new Map();
         Object.entries(playerHoleCards).forEach(function (_a) {
             var seatIndex = _a[0], cards = _a[1];
-            playerCardsMap.set(parseInt(seatIndex), cards.map(convertCard));
+            playerCardsMap.set(parseInt(seatIndex), cards.map(converter_1.convertCard));
         });
         this._table.manualShowdown(internalCommunityCards, playerCardsMap);
     };

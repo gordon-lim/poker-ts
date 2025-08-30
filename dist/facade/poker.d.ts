@@ -1,6 +1,7 @@
 import ChipRange from '../lib/chip-range';
 import { SeatIndex } from 'types/seat-index';
 import { HandRanking } from '../lib/hand';
+import { SeatArray } from 'types/seat-array';
 export declare type Card = {
     rank: '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | 'T' | 'J' | 'Q' | 'K' | 'A';
     suit: 'clubs' | 'diamonds' | 'hearts' | 'spades';
@@ -27,6 +28,7 @@ export default class Poker {
         betSize: number;
     } | null)[];
     numActivePlayers(): number;
+    initialHandPlayers(): SeatArray;
     pots(): {
         size: number;
         eligiblePlayers: number[];
@@ -46,6 +48,21 @@ export default class Poker {
     isHandInProgress(): boolean;
     isBettingRoundInProgress(): boolean;
     areBettingRoundsCompleted(): boolean;
+    /**
+     * Checks if the current betting round is at its very beginning with no actions taken yet.
+     * This indicates that the first player to act has not yet made any decision.
+     *
+     * @returns true if no actions have been taken and a betting round is in progress
+     */
+    isAtStartOfBettingRound(): boolean;
+    /**
+     * Checks if the current betting round has actions taken but is still in progress.
+     * This means at least one player has acted but there are still more actions required
+     * before the betting round can be completed.
+     *
+     * @returns true if actions have been taken but the betting round is still in progress
+     */
+    isInMiddleOfBettingRound(): boolean;
     roundOfBetting(): 'preflop' | 'flop' | 'turn' | 'river';
     communityCards(): Card[];
     legalActions(): {

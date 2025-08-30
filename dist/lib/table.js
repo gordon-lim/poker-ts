@@ -18,6 +18,11 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
+var __spreadArray = (this && this.__spreadArray) || function (to, from) {
+    for (var i = 0, il = from.length, j = to.length; i < il; i++, j++)
+        to[j] = from[i];
+    return to;
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -58,7 +63,7 @@ var Table = /** @class */ (function () {
         return this._dealer.playerToAct();
     };
     Table.prototype.button = function () {
-        assert_1.default(this.handInProgress(), 'Hand must be in progress');
+        // assert(this.handInProgress(), 'Hand must be in progress')
         assert_1.default(this._dealer !== undefined);
         return this._dealer.button();
     };
@@ -74,6 +79,11 @@ var Table = /** @class */ (function () {
         assert_1.default(this.handInProgress(), 'Hand must be in progress');
         assert_1.default(this._dealer !== undefined);
         return this._dealer.numActivePlayers();
+    };
+    Table.prototype.initialHandPlayers = function () {
+        // assert(this.handInProgress(), 'Hand must be in progress')
+        assert_1.default(this._initialHandPlayers !== undefined);
+        return this._initialHandPlayers;
     };
     Table.prototype.pots = function () {
         assert_1.default(this.handInProgress(), 'Hand must be in progress');
@@ -100,6 +110,7 @@ var Table = /** @class */ (function () {
         this._staged = new Array(this._numSeats).fill(false);
         this._automaticActions = new Array(this._numSeats).fill(null);
         this._handPlayers = this._tablePlayers.map(function (player) { return player ? new player_1.default(player) : null; });
+        this._initialHandPlayers = __spreadArray([], this._handPlayers); // Store a copy of initial hand players
         this.incrementButton();
         this._deck.fillAndShuffle();
         this._communityCards = new community_cards_1.default();
@@ -120,6 +131,37 @@ var Table = /** @class */ (function () {
         assert_1.default(this.handInProgress(), 'Hand must be in progress');
         assert_1.default(this._dealer !== undefined);
         return this._dealer.bettingRoundsCompleted();
+    };
+    /**
+     * Checks if the current betting round is at its very beginning with no actions taken yet.
+     * This indicates that the first player to act has not yet made any decision.
+     *
+     * This is the main public API method for determining if you're at the initial state
+     * of a betting round where no betting actions have occurred yet.
+     *
+     * @returns true if no actions have been taken and a betting round is in progress
+     * @throws {AssertionError} if no hand is in progress
+     */
+    Table.prototype.isAtStartOfBettingRound = function () {
+        assert_1.default(this.handInProgress(), 'Hand must be in progress');
+        assert_1.default(this._dealer !== undefined);
+        return this._dealer.isAtStartOfBettingRound();
+    };
+    /**
+     * Checks if the current betting round has actions taken but is still in progress.
+     * This means at least one player has actions taken but there are still more actions required
+     * before the betting round can be completed.
+     *
+     * This is the main public API method for determining if you're in the middle of
+     * active betting where some players have acted but the round hasn't finished yet.
+     *
+     * @returns true if actions have been taken but the betting round is still in progress
+     * @throws {AssertionError} if no hand is in progress
+     */
+    Table.prototype.isInMiddleOfBettingRound = function () {
+        assert_1.default(this.handInProgress(), 'Hand must be in progress');
+        assert_1.default(this._dealer !== undefined);
+        return this._dealer.isInMiddleOfBettingRound();
     };
     Table.prototype.roundOfBetting = function () {
         assert_1.default(this.handInProgress(), 'Hand must be in progress');
@@ -181,17 +223,19 @@ var Table = /** @class */ (function () {
         this.updateTablePlayers();
         this.standUpBustedPlayers();
     };
-    // Add these methods after the existing showdown method (around line 216)
     Table.prototype.setCommunityCards = function (cards) {
-        assert_1.default(this._dealer !== undefined, 'Hand must be in progress');
+        assert_1.default(this.handInProgress(), 'Hand must be in progress');
+        assert_1.default(this._dealer !== undefined);
         this._dealer.setCommunityCards(cards.map(function (card) { return new card_1.default(card.rank, card.suit); }));
     };
     Table.prototype.setPlayerHoleCards = function (seatIndex, cards) {
-        assert_1.default(this._dealer !== undefined, 'Hand must be in progress');
+        assert_1.default(this.handInProgress(), 'Hand must be in progress');
+        assert_1.default(this._dealer !== undefined);
         this._dealer.setHoleCards(seatIndex, cards.map(function (card) { return new card_1.default(card.rank, card.suit); }));
     };
     Table.prototype.manualShowdown = function (communityCards, playerHoleCards) {
-        assert_1.default(this._dealer !== undefined, 'Hand must be in progress');
+        assert_1.default(this.handInProgress(), 'Hand must be in progress');
+        assert_1.default(this._dealer !== undefined);
         // Convert the facade Card format to internal Card format
         var internalCommunityCards = communityCards.map(function (card) { return new card_1.default(card.rank, card.suit); });
         var internalPlayerCards = new Map();

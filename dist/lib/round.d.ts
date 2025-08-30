@@ -18,6 +18,14 @@ export default class Round {
     numActivePlayers(): number;
     inProgress(): boolean;
     isContested(): boolean;
+    /**
+     * Returns true if no actions have been taken yet in this round.
+     * This indicates the round is at its initial state where the first player
+     * to act has not yet made any decision.
+     *
+     * @returns true if this is the very start of the betting round
+     */
+    isFirstAction(): boolean;
     actionTaken(action: Action): void;
     private incrementPlayer;
 }
