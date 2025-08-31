@@ -303,6 +303,7 @@ var Dealer = /** @class */ (function () {
     };
     Dealer.prototype.evaluateAndDistributePots = function () {
         var _this = this;
+        var _a;
         if (this._potManager.pots().length === 1) {
             var eligiblePlayersWithCards = this._potManager.pots()[0].eligiblePlayers()
                 .filter(function (seatIndex) { return _this._holeCards[seatIndex] !== null; });
@@ -317,6 +318,7 @@ var Dealer = /** @class */ (function () {
             }
         }
         var _loop_1 = function (pot) {
+            var potPayouts = {};
             var playerResults = pot.eligiblePlayers()
                 .filter(function (seatIndex) { return _this._holeCards[seatIndex] !== null; })
                 .map(function (seatIndex) {
@@ -344,12 +346,8 @@ var Dealer = /** @class */ (function () {
                 var _a;
                 var seatIndex = playerResult[0];
                 (_a = _this._players[seatIndex]) === null || _a === void 0 ? void 0 : _a.addToStack(payout);
+                potPayouts[seatIndex] = payout;
             });
-            this_1._winners.push(winningPlayerResults.map(function (playerResult) {
-                var seatIndex = playerResult[0];
-                var holeCards = _this._holeCards[seatIndex];
-                return __spreadArray(__spreadArray([], playerResult), [holeCards]);
-            }));
             if (oddChips !== 0) {
                 // Distribute the odd chips to the first players, counting clockwise, after the dealer button
                 var winners_1 = new Array(this_1._players.length).fill(null);
@@ -363,13 +361,21 @@ var Dealer = /** @class */ (function () {
                     var winner = winners_1[seat];
                     assert_1.default(winner !== null);
                     winner.addToStack(1);
+                    potPayouts[seat] = ((_a = potPayouts[seat]) !== null && _a !== void 0 ? _a : 0) + 1;
                     oddChips--;
                 }
             }
+            this_1._winners.push(winningPlayerResults.map(function (playerResult) {
+                var _a;
+                var seatIndex = playerResult[0];
+                var holeCards = _this._holeCards[seatIndex];
+                var potPayout = (_a = potPayouts[seatIndex]) !== null && _a !== void 0 ? _a : 0;
+                return __spreadArray(__spreadArray([], playerResult), [holeCards, potPayout]);
+            }));
         };
         var this_1 = this;
-        for (var _i = 0, _a = this._potManager.pots(); _i < _a.length; _i++) {
-            var pot = _a[_i];
+        for (var _i = 0, _b = this._potManager.pots(); _i < _b.length; _i++) {
+            var pot = _b[_i];
             _loop_1(pot);
         }
     };

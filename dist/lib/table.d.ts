@@ -78,7 +78,7 @@ export default class Table {
     setCommunityCards(cards: Card[]): void;
     setPlayerHoleCards(seatIndex: SeatIndex, cards: Card[]): void;
     manualShowdown(communityCards: Card[], playerHoleCards: Map<SeatIndex, Card[]>): void;
-    winners(): [SeatIndex, Hand, HoleCards][][];
+    winners(): [SeatIndex, Hand, HoleCards, number][][];
     automaticActions(): (AutomaticAction | null)[];
     canSetAutomaticAction(seat: SeatIndex): boolean;
     legalAutomaticActions(seat: SeatIndex): AutomaticAction;

@@ -667,65 +667,7 @@ describe('Table', () => {
             table.startHand()
         })
 
-        describe('setCommunityCards', () => {
-            test('should set community cards correctly', () => {
-                const testCards = [
-                    new Card(CardRank.A, CardSuit.SPADES),
-                    new Card(CardRank.K, CardSuit.SPADES),
-                    new Card(CardRank.Q, CardSuit.SPADES),
-                    new Card(CardRank.J, CardSuit.SPADES),
-                    new Card(CardRank.T, CardSuit.SPADES)
-                ]
-
-                table.setCommunityCards(testCards)
-                
-                const communityCards = table.communityCards().cards()
-                expect(communityCards).toHaveLength(5)
-                expect(communityCards[0].rank).toBe(CardRank.A)
-                expect(communityCards[0].suit).toBe(CardSuit.SPADES)
-            })
-
-            test('should throw error when hand is not in progress', () => {
-                // End the hand first
-                table.actionTaken(Action.FOLD)
-                table.actionTaken(Action.FOLD)
-                table.endBettingRound()
-                table.showdown()
-
-                const testCards = [new Card(CardRank.A, CardSuit.SPADES)]
-                expect(() => table.setCommunityCards(testCards)).toThrow('Hand must be in progress')
-            })
-        })
-
-        describe('setPlayerHoleCards', () => {
-            test('should set hole cards for a player correctly', () => {
-                const testCards = [
-                    new Card(CardRank.A, CardSuit.HEARTS),
-                    new Card(CardRank.K, CardSuit.HEARTS)
-                ]
-
-                expect(() => table.setPlayerHoleCards(0, testCards)).not.toThrow()
-                
-                const holeCards = table.holeCards()
-                expect(holeCards[0]).toHaveLength(2)
-                expect(holeCards[0]![0].rank).toBe(CardRank.A)
-                expect(holeCards[0]![0].suit).toBe(CardSuit.HEARTS)
-            })
-
-            test('should throw error when hand is not in progress', () => {
-                // End the hand first
-                table.actionTaken(Action.FOLD)
-                table.actionTaken(Action.FOLD)
-                table.endBettingRound()
-                table.showdown()
-
-                const testCards = [
-                    new Card(CardRank.A, CardSuit.HEARTS),
-                    new Card(CardRank.K, CardSuit.HEARTS)
-                ]
-                expect(() => table.setPlayerHoleCards(0, testCards)).toThrow('Hand must be in progress')
-            })
-        })
+        
 
         describe('all players reach showdown', () => {
             beforeEach(() => {
@@ -869,7 +811,7 @@ describe('Table', () => {
 
                 // Each winner should have [seatIndex, hand, holeCards] structure
                 const winner = firstPotWinners[0]
-                expect(winner).toHaveLength(3)
+                expect(winner).toHaveLength(4)
                 expect(typeof winner[0]).toBe('number') // seat index
                 expect(winner[1]).toBeDefined() // hand object
                 expect(winner[2]).toBeDefined() // hole cards

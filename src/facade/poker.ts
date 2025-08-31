@@ -202,16 +202,6 @@ export default class Poker {
     showdown(): void {
         this._table.showdown()
     }
-    // Add these methods after the existing showdown method (around line 177)
-    setCommunityCards(cards: Card[]): void {
-        const internalCards = cards.map(convertCard)
-        this._table.setCommunityCards(internalCards)
-    }
-
-    setPlayerHoleCards(seatIndex: number, cards: Card[]): void {
-        const internalCards = cards.map(convertCard)
-        this._table.setPlayerHoleCards(seatIndex, internalCards)
-    }
 
     manualShowdown(communityCards: Card[], playerHoleCards: { [seatIndex: number]: Card[] }): void {
         const internalCommunityCards = communityCards.map(convertCard)
@@ -223,9 +213,9 @@ export default class Poker {
         this._table.manualShowdown(internalCommunityCards, playerCardsMap)
     }
 
-    winners(): [SeatIndex, { cards: Card[], ranking: HandRanking, strength: number }, Card[]][][] {
+    winners(): [SeatIndex, { cards: Card[], ranking: HandRanking, strength: number }, Card[], number][][] {
         return this._table.winners().map(potWinners => potWinners.map(winner => {
-            const [seatIndex, hand, holeCards] = winner
+            const [seatIndex, hand, holeCards, payout] = winner
             return [
                 seatIndex,
                 {
@@ -234,6 +224,7 @@ export default class Poker {
                     strength: hand.strength(),
                 },
                 holeCards.map(cardMapper),
+                payout,
             ]
         }))
     }

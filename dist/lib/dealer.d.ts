@@ -78,7 +78,7 @@ export default class Dealer {
     startHand(): void;
     actionTaken(action: Action, bet?: Chips): void;
     endBettingRound(): void;
-    winners(): [SeatIndex, Hand, HoleCards][][];
+    winners(): [SeatIndex, Hand, HoleCards, number][][];
     setCommunityCards(cards: Card[]): void;
     setHoleCards(seatIndex: SeatIndex, cards: Card[]): void;
     manualShowdown(communityCards: Card[], playerHoleCards: Map<SeatIndex, Card[]>): void;

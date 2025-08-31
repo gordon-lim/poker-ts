@@ -50,7 +50,7 @@ export default class Dealer {
     private _roundOfBetting: RoundOfBetting = RoundOfBetting.PREFLOP
     private _bettingRoundsCompleted: boolean = false
     private _potManager: PotManager
-    private _winners: [SeatIndex, Hand, HoleCards][][]
+    private _winners: [SeatIndex, Hand, HoleCards, number][][]
 
     constructor(players: SeatArray, button: SeatIndex, forcedBets: ForcedBets, deck: Deck, communityCards: CommunityCards, numSeats: number = 9) {
         this._players = players
@@ -267,19 +267,19 @@ export default class Dealer {
         }
     }
 
-    winners(): [SeatIndex, Hand, HoleCards][][] {
+    winners(): [SeatIndex, Hand, HoleCards, number][][] {
         assert(!this.handInProgress(), 'Hand must not be in progress')
 
         return this._winners
     }
 
-    setCommunityCards(cards: Card[]): void {
+    private setCommunityCards(cards: Card[]): void {
         assert(cards.length <= 5, 'Cannot set more than 5 community cards')
         this._communityCards.reset()
         this._communityCards.deal(cards)
     }
     
-    setHoleCards(seatIndex: SeatIndex, cards: Card[]): void {
+    private setHoleCards(seatIndex: SeatIndex, cards: Card[]): void {
         assert(cards.length === 2, 'Hole cards must be exactly 2 cards')
         assert(seatIndex >= 0 && seatIndex < this._holeCards.length, 'Invalid seat index')
         this._holeCards[seatIndex] = cards as [Card, Card]
@@ -330,6 +330,7 @@ export default class Dealer {
         }
 
         for (const pot of this._potManager.pots()) {
+            const potPayouts: { [key: number]: number } = {}
             const playerResults: [SeatIndex, Hand][] = pot.eligiblePlayers()
                 .filter(seatIndex => this._holeCards[seatIndex] !== null)
                 .map(seatIndex => {
@@ -354,14 +355,8 @@ export default class Dealer {
             winningPlayerResults.forEach((playerResult: [SeatIndex, Hand]) => {
                 const [seatIndex] = playerResult
                 this._players[seatIndex]?.addToStack(payout)
+                potPayouts[seatIndex] = payout
             })
-
-            this._winners.push(winningPlayerResults.map((playerResult: [SeatIndex, Hand]) => {
-                const [seatIndex] = playerResult
-                const holeCards = this._holeCards[seatIndex];
-
-                return [...playerResult, holeCards];
-            }))
 
             if (oddChips !== 0) {
                 // Distribute the odd chips to the first players, counting clockwise, after the dealer button
@@ -377,9 +372,18 @@ export default class Dealer {
                     const winner = winners[seat]
                     assert(winner !== null)
                     winner.addToStack(1)
+                    potPayouts[seat] = (potPayouts[seat] ?? 0) + 1;
                     oddChips--
                 }
             }
+
+            this._winners.push(winningPlayerResults.map((playerResult: [SeatIndex, Hand]) => {
+                const [seatIndex] = playerResult
+                const holeCards = this._holeCards[seatIndex]
+                const potPayout: number = potPayouts[seatIndex] ?? 0
+
+                return [...playerResult, holeCards, potPayout];
+            }))
         }
     }
 

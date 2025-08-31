@@ -210,7 +210,7 @@ var Poker = /** @class */ (function () {
     };
     Poker.prototype.winners = function () {
         return this._table.winners().map(function (potWinners) { return potWinners.map(function (winner) {
-            var seatIndex = winner[0], hand = winner[1], holeCards = winner[2];
+            var seatIndex = winner[0], hand = winner[1], holeCards = winner[2], payout = winner[3];
             return [
                 seatIndex,
                 {
@@ -219,6 +219,7 @@ var Poker = /** @class */ (function () {
                     strength: hand.strength(),
                 },
                 holeCards.map(cardMapper),
+                payout,
             ];
         }); });
     };

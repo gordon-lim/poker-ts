@@ -260,19 +260,6 @@ export default class Table {
         this.standUpBustedPlayers()
     }
 
-
-    setCommunityCards(cards: Card[]): void {
-        assert(this.handInProgress(), 'Hand must be in progress')
-        assert(this._dealer !== undefined)
-        this._dealer.setCommunityCards(cards.map(card => new Card(card.rank, card.suit)))
-    }
-
-    setPlayerHoleCards(seatIndex: SeatIndex, cards: Card[]): void {
-        assert(this.handInProgress(), 'Hand must be in progress')
-        assert(this._dealer !== undefined)
-        this._dealer.setHoleCards(seatIndex, cards.map(card => new Card(card.rank, card.suit)))
-    }
-
     manualShowdown(communityCards: Card[], playerHoleCards: Map<SeatIndex, Card[]>): void {
         assert(this.handInProgress(), 'Hand must be in progress')
         assert(this._dealer !== undefined)
@@ -290,7 +277,7 @@ export default class Table {
         this.standUpBustedPlayers()
     }
 
-    winners(): [SeatIndex, Hand, HoleCards][][] {
+    winners(): [SeatIndex, Hand, HoleCards, number][][] {
         assert(!this.handInProgress(), 'Hand must not be in progress')
 
         return this._dealer?.winners() ?? []

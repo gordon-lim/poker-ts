@@ -714,53 +714,7 @@ describe('Dealer', () => {
             dealer.startHand()
         })
 
-        describe('setCommunityCards', () => {
-            test('should set community cards correctly', () => {
-                const testCards = makeCards('As Ks Qs Js Ts')
-                dealer.setCommunityCards(testCards)
-                
-                // Access community cards through a method that doesn't require full game state
-                expect(dealer._communityCards.cards()).toHaveLength(5)
-                expect(dealer._communityCards.cards()[0].rank).toBe(CardRank.A)
-                expect(dealer._communityCards.cards()[0].suit).toBe(CardSuit.SPADES)
-            })
-
-            test('should throw error if more than 5 cards provided', () => {
-                const testCards = makeCards('As Ks Qs Js Ts 2h')
-                expect(() => dealer.setCommunityCards(testCards)).toThrow('Cannot set more than 5 community cards')
-            })
-
-            test('should allow setting fewer than 5 cards', () => {
-                const testCards = makeCards('As Ks Qs')
-                expect(() => dealer.setCommunityCards(testCards)).not.toThrow()
-                expect(dealer._communityCards.cards()).toHaveLength(3)
-            })
-        })
-
-        describe('setHoleCards', () => {
-            test('should set hole cards for a player correctly', () => {
-                const testCards = makeCards('Ah Kh')
-                dealer.setHoleCards(0, testCards)
-                
-                const holeCards = dealer.holeCards()
-                expect(holeCards[0]).toHaveLength(2)
-                expect(holeCards[0]![0].rank).toBe(CardRank.A)
-                expect(holeCards[0]![0].suit).toBe(CardSuit.HEARTS)
-                expect(holeCards[0]![1].rank).toBe(CardRank.K)
-                expect(holeCards[0]![1].suit).toBe(CardSuit.HEARTS)
-            })
-
-            test('should throw error if not exactly 2 cards provided', () => {
-                const testCards = makeCards('Ah Kh Qh')
-                expect(() => dealer.setHoleCards(0, testCards)).toThrow('Hole cards must be exactly 2 cards')
-            })
-
-            test('should throw error for invalid seat index', () => {
-                const testCards = makeCards('Ah Kh')
-                expect(() => dealer.setHoleCards(-1, testCards)).toThrow('Invalid seat index')
-                expect(() => dealer.setHoleCards(10, testCards)).toThrow('Invalid seat index')
-            })
-        })
+        
 
         describe('all players reach showdown', () => {
             beforeEach(() => {

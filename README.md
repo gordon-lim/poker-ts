@@ -1,5 +1,44 @@
-# Poker (TypeScript)
-Poker-ts is a poker game engine that can be used to serve Texas hold'em games for real players.
+## 𐂐 Fork Notice
+This repository is a maintained fork of the original `poker-ts`. It extends the public API to support additional control and evaluation flows while remaining compatible with the original usage. Notable differences:
+
+- Added: `initialHandPlayers()`
+- Added: `isAtStartOfBettingRound()`
+- Added: `isInMiddleOfBettingRound()`
+- Added: `setCommunityCards(cards)`
+- Added: `setPlayerHoleCards(seatIndex, cards)`
+- Added: `manualShowdown(communityCards, playerHoleCards)`
+- Modified: `winners()` now includes a numeric payout as the fourth tuple element per winner
+
+## Extended API (Added/Modified)
+Quick reference for users coming from the original project. See the API section below for full details.
+
+### initialHandPlayers()
+`Poker.Table.prototype.initialHandPlayers(): ({ totalChips: number, stack: number, betSize: number } | null)[]`
+
+Returns the state of the players that were in the hand at the time the hand started.
+
+### isAtStartOfBettingRound()
+`Poker.Table.prototype.isAtStartOfBettingRound(): boolean`
+
+Returns `true` if the current betting round has started and no actions have been taken yet.
+
+### isInMiddleOfBettingRound()
+`Poker.Table.prototype.isInMiddleOfBettingRound(): boolean`
+
+Returns `true` if at least one action has been taken and the betting round is still in progress. 
+
+### manualShowdown(communityCards, playerHoleCards)
+`Poker.Table.prototype.manualShowdown(communityCards: Card[], playerHoleCards: { [seatIndex: number]: Card[] }): void`
+
+Performs a showdown using explicitly provided community cards and a mapping of players' hole cards. This bypasses dealing and evaluates winners directly.
+
+### winners() (modified)
+`Poker.Table.prototype.winners(): [SeatIndex, { cards: Card[], ranking: HandRanking, strength: number }, Card[], number][][]`
+
+Returns the winner(s) per pot after showdown, now including the numeric payout as the fourth element for each winner tuple.
+
+# chip-poker-ts (TypeScript)
+chip-poker-ts is a poker game engine fork of `poker-ts` that can be used to serve Texas hold'em games for real players.
 
 ## Acknowledgment
 This library is a TypeScript port of the [C++ Poker library](https://github.com/JankoDedic/poker) written by Janko Dedic. Note that minor differences in the API might exist.
@@ -9,7 +48,7 @@ Poker-ts exports a `Poker.Table` class that represents a state machine and model
 
 Short example below:
 ```js
-const Poker = require('poker-ts');
+const Poker = require('chip-poker-ts');
 
 table = new Poker.Table({ smallBlind: 50, bigBlind: 100 })
 
@@ -98,6 +137,11 @@ Returns the state of the players seated at the table.
 
 Returns the state of the players currently in the hand. (Hand must be in progress.)
 
+### initialHandPlayers()
+`Poker.Table.prototype.initialHandPlayers(): ({ totalChips: number, stack: number, betSize: number } | null)[]`
+
+Returns the state of the players that were in the hand at the time the hand started.
+
 ### numActivePlayers()
 `Poker.Table.prototype.numActivePlayers(): number`
 
@@ -142,6 +186,16 @@ Returns `true` if hand is in progress.
 
 Returns `true` if betting round is in progress. (Hand must be in progress.)
 
+### isAtStartOfBettingRound()
+`Poker.Table.prototype.isAtStartOfBettingRound(): boolean`
+
+Returns `true` if the current betting round has started and no actions have been taken yet.
+
+### isInMiddleOfBettingRound()
+`Poker.Table.prototype.isInMiddleOfBettingRound(): boolean`
+
+Returns `true` if at least one action has been taken and the betting round is still in progress.
+
 ### areBettingRoundsCompleted()
 `Poker.Table.prototype.areBettingRoundsCompleted(): boolean`
 
@@ -153,7 +207,7 @@ Returns `true` if all betting rounds are completed. (Hand must be in progress.)
 Returns the current round of betting. (Hand must be in progress)
 
 ### communityCards()
-`Poker.Table.prototype.communityCards(): : Card[]`
+`Poker.Table.prototype.communityCards(): Card[]`
 
 Returns the community cards for the active hand. (Hand must be in progress.)
 
@@ -182,12 +236,17 @@ End the current betting round which is no longer in progress. Collect the bets a
 
 Perform a showdown. Evaluate the players' hands and pay the winners. (Betting round must not be in progress and betting rounds must be completed.)
 
+### manualShowdown(communityCards, playerHoleCards)
+`Poker.Table.prototype.manualShowdown(communityCards: Card[], playerHoleCards: { [seatIndex: number]: Card[] }): void`
+
+Performs a showdown using explicitly provided community cards and a mapping of players' hole cards. This bypasses dealing and evaluates winners directly. (Betting rounds do not need to be in progress.)
+
 ### winners()
-`Poker.Table.prototype.winners(): [SeatIndex, { cards: Card[], ranking: HandRanking, strength: number }, Card[]][][]`
+`Poker.Table.prototype.winners(): [SeatIndex, { cards: Card[], ranking: HandRanking, strength: number }, Card[], number][][]`
 
-Returns the winner(s) for each pot after showdown. (Hand must not be in progress.)
+Returns the winner(s) for each pot after showdown. Each winner tuple contains the seat index, the winner's five-card hand (with ranking and strength), the two hole cards of the winner, and the numeric payout for that pot. (Hand must not be in progress.)
 
-For each pot, an array entry will contain the seat index of the winner, the winner's hand, including the five winning cards, hand ranking and strength, and the two hole cards of the winner.
+For each pot, an array entry will contain one or more winner tuples as described above.
 
 Note that the result will be empty if there is one pot with one single eligible player left in the hand. Access the `pots()` before calling `showdown()` to explicitly get the winner if there is only one eligible player left.
 

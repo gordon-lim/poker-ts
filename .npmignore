@@ -1,0 +1,38 @@
+# macOS system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# IDE/editor configs
+.vscode/
+.idea/
+*.swp
+
+# Build outputs
+dist/
+coverage/
+*.log
+
+# Tests
+test/
+__tests__/
+*.spec.ts
+*.test.ts
+
+# Git & CI
+.github/
+.gitignore
+
+# TypeScript configs (not needed in package)
+tsconfig.json
+tslint.json
+
+# Package manager locks (leave out if you don’t want them included)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Jest config
+jest.config.js
